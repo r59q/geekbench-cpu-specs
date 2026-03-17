@@ -45,4 +45,4 @@ Example output:
         "threads": 8
     }
 ]
-```# geekbench-cpu-specs
+```
