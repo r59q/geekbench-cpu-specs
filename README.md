@@ -12,7 +12,7 @@ This will generate a file cpu-list.json. This process will take a little less th
 It works by webscraping, you can alter the sleep time in-between scrapes by giving the sleep duration as argument to avoid rate limits.
 ```shell
 # Sleep for 3 seconds in-between network calls
-node create-cpu-list.js 3000
+node create-cpu-list.js 3000 # default: 1400
 ```
 
 Example output:
