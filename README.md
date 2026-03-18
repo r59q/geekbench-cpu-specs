@@ -61,7 +61,9 @@ You can also specify a filename
 node create-cpu-list.js geekbench-cpu-list.json
 ```
 
-You can also just download the cpu-list.v1.json file from this repository. It will be the same file you can generate running it yourself.
+If you already have a cpu-list.v1.json file, it will be used as a cache to avoid re-fetching data for CPUs that haven't changed. The script will only fetch data for new CPUs or those that have updated scores.
+
+You can also just download the cpu-list.v1.json file from this repository. It will be the same file you can generate running it yourself. It is updated once per day automatically.
 
 Example output:
 ```json
