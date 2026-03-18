@@ -1,6 +1,6 @@
 # Geekbench CPU Specs
 List of all CPUs in Geekbench with their specs. See [cpu-list.v1.json](cpu-list.v1.json) for the actual data.
-Updated once per week automatically.
+Updated once per day automatically.
 
  To generate it, a simple, no-dependency node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
  and refines the results, adding boost frequency, number of threads, performance/efficiency cores, gpu and tdp by regex webscraping their own cpu index site.

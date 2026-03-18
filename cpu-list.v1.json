@@ -8063,7 +8063,7 @@
     "tdp": 35,
     "gpu": "Intel HD Graphics 630"
   },
-  "Intel Celeron N4000 ": {
+  "Intel Celeron N4000": {
     "id": 2202,
     "name": "Intel Celeron N4000",
     "samples": 627,
@@ -8315,7 +8315,7 @@
     "tdp": 140,
     "gpu": null
   },
-  "Intel Core i3-8130U ": {
+  "Intel Core i3-8130U": {
     "id": 2246,
     "name": "Intel Core i3-8130U",
     "samples": 1261,
@@ -8495,7 +8495,7 @@
     "tdp": 140,
     "gpu": null
   },
-  "Intel Xeon W-2135 ": {
+  "Intel Xeon W-2135": {
     "id": 2457,
     "name": "Intel Xeon W-2135",
     "samples": 379,
@@ -14615,7 +14615,7 @@
     "tdp": 10,
     "gpu": "Intel UHD Graphics 600"
   },
-  "Intel Xeon W-2123 ": {
+  "Intel Xeon W-2123": {
     "id": 2302,
     "name": "Intel Xeon W-2123",
     "samples": 300,
@@ -16343,7 +16343,7 @@
     "tdp": 85,
     "gpu": null
   },
-  "AMD A4-5300B ": {
+  "AMD A4-5300B": {
     "id": 2267,
     "name": "AMD A4-5300B",
     "samples": 10,
@@ -16361,7 +16361,7 @@
     "tdp": 65,
     "gpu": "Radeon HD 7480D"
   },
-  "AMD G-Series GX-217GA ": {
+  "AMD G-Series GX-217GA": {
     "id": 2437,
     "name": "AMD G-Series GX-217GA",
     "samples": 5,
@@ -16991,7 +16991,7 @@
     "tdp": 145,
     "gpu": null
   },
-  "Intel Core i3-4150T ": {
+  "Intel Core i3-4150T": {
     "id": 2252,
     "name": "Intel Core i3-4150T",
     "samples": 41,
@@ -17009,7 +17009,7 @@
     "tdp": 35,
     "gpu": "Intel HD Graphics 4400"
   },
-  "AMD A10 PRO-7800B ": {
+  "AMD A10 PRO-7800B": {
     "id": 2382,
     "name": "AMD A10 PRO-7800B",
     "samples": 47,
@@ -18269,7 +18269,7 @@
     "tdp": 65,
     "gpu": "Radeon HD 6410D"
   },
-  "Intel Core i5-8305G ": {
+  "Intel Core i5-8305G": {
     "id": 2507,
     "name": "Intel Core i5-8305G",
     "samples": 9,
@@ -20051,7 +20051,7 @@
     "tdp": 165,
     "gpu": null
   },
-  "Intel Core i4-4690T ": {
+  "Intel Core i4-4690T": {
     "id": 2297,
     "name": "Intel Core i4-4690T",
     "samples": 33,
@@ -22967,7 +22967,7 @@
     "tdp": 95,
     "gpu": null
   },
-  "AMD A8-6500B ": {
+  "AMD A8-6500B": {
     "id": 2301,
     "name": "AMD A8-6500B",
     "samples": 21,
@@ -23093,7 +23093,7 @@
     "tdp": 120,
     "gpu": null
   },
-  "Intel Core i5-6500TE ": {
+  "Intel Core i5-6500TE": {
     "id": 2274,
     "name": "Intel Core i5-6500TE",
     "samples": 29,
@@ -23471,7 +23471,7 @@
     "tdp": 135,
     "gpu": null
   },
-  "Intel Xeon Gold 6136 ": {
+  "Intel Xeon Gold 6136": {
     "id": 2288,
     "name": "Intel Xeon Gold 6136",
     "samples": 52,
@@ -24011,7 +24011,7 @@
     "tdp": 45,
     "gpu": "Intel HD Graphics 4000"
   },
-  "Intel Core i3-4025U ": {
+  "Intel Core i3-4025U": {
     "id": 2240,
     "name": "Intel Core i3-4025U",
     "samples": 24,
@@ -33965,7 +33965,7 @@
     "tdp": null,
     "gpu": "Intel UHD Graphics for 13th Gen Intel Processors"
   },
-  "Intel Core i3-7101TE ": {
+  "Intel Core i3-7101TE": {
     "id": 2343,
     "name": "Intel Core i3-7101TE",
     "samples": 6,
@@ -34073,7 +34073,7 @@
     "tdp": 165,
     "gpu": null
   },
-  "Intel Xeon E5-2618L v3\r\n": {
+  "Intel Xeon E5-2618L v3": {
     "id": 2335,
     "name": "Intel Xeon E5-2618L v3",
     "samples": 6,
@@ -35117,24 +35117,6 @@
     "tdp": 350,
     "gpu": null
   },
-  "AMD Ryzen Threadripper PRO 9985WX s": {
-    "id": 4186,
-    "name": "AMD Ryzen Threadripper PRO 9985WX",
-    "samples": 80,
-    "score": 3277,
-    "multicore_score": 31343,
-    "icon": "amd",
-    "family": "Shimada Peak",
-    "frequency": 3.2,
-    "boost_frequency": 5.4,
-    "cores": 64,
-    "performance_cores": null,
-    "efficiency_cores": null,
-    "threads": 128,
-    "package": null,
-    "tdp": 350,
-    "gpu": null
-  },
   "AMD Ryzen Threadripper PRO 9995WX": {
     "id": 4187,
     "name": "AMD Ryzen Threadripper PRO 9995WX",
@@ -35224,5 +35206,23 @@
     "package": "FCBGA1264",
     "tdp": 15,
     "gpu": "Intel UHD Graphics"
+  },
+  "AMD Ryzen Threadripper PRO 9985WX": {
+    "id": 4186,
+    "name": "AMD Ryzen Threadripper PRO 9985WX",
+    "samples": 80,
+    "score": 3277,
+    "multicore_score": 31343,
+    "icon": "amd",
+    "family": "Shimada Peak",
+    "frequency": 3.2,
+    "boost_frequency": 5.4,
+    "cores": 64,
+    "performance_cores": null,
+    "efficiency_cores": null,
+    "threads": 128,
+    "package": null,
+    "tdp": 350,
+    "gpu": null
   }
 }

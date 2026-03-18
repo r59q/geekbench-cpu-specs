@@ -6,24 +6,41 @@ const initialFetchDelay = 50;
 
 const args = process.argv.slice(2);
 const outputFileName = args[0] || `cpu-list.v${VERSION_NO}.json`;
+const fs = require('fs').promises;
 
 /**
  * Fetches list of geekbench processors. Enriching the results by scraping each processor's details page to get thread count and boost frequency, which are not included in the initial JSON response. Exports the enriched list to a JSON file.
  */
 async function main() {
     let iterationCount = 0;
+    log.step("Checking for existing CPU list...");
+    let enrichedBenchmarks = {};
+    try {
+        const existingData = await fs.readFile(outputFileName, 'utf8');
+        enrichedBenchmarks = JSON.parse(existingData);
+        log.success(`Loaded ${COLORS.bright}${Object.keys(enrichedBenchmarks).length}${COLORS.reset} processors from existing file.`);
+    } catch (err) {
+        log.info("No existing CPU list found or failed to read. Starting from scratch.");
+    }
+
     log.step("Fetching benchmarks list...");
     const benchmarks = (await (await retryingFetchWithBackoff(GEEKBENCH_PROCESSOR_BENCHMARKS_URL)).json()).devices
 
     log.success(`Fetched ${COLORS.bright}${benchmarks.length}${COLORS.reset} processors.`);
 
-    const enrichedBenchmarks = {};
     for (let i = 0; i < benchmarks.length; i++) {
         const enrichStart = Date.now();
         const processor = benchmarks[i];
+        const sanitizedName = getSanitizedName(processor);
+
+        if (enrichedBenchmarks[sanitizedName]) {
+            logIteration(enrichStart, enrichStart, iterationCount, benchmarks, processor, i);
+            iterationCount++;
+            continue;
+        }
 
         try {
-            enrichedBenchmarks[processor.name] = await enrichBenchmark(processor);
+            enrichedBenchmarks[sanitizedName] = await enrichBenchmark(processor);
         } catch (error) {
             process.stdout.write('\n');
             log.error(`Failed to enrich benchmark for ${processor.name}: ${error.message}`);
@@ -31,6 +48,7 @@ async function main() {
 
         const enrichEnd = Date.now();
         logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, processor, i);
+        iterationCount++;
     }
     process.stdout.write('\n');
     log.step("Finalizing...");
@@ -160,7 +178,6 @@ async function exportCpuListToJson(cpuList, filename) {
     const json = JSON.stringify(cpuList, null, 2);
 
     try {
-        const fs = require('fs').promises;
         await fs.writeFile(filename, json, 'utf8');
         log.success(`JSON written to ${COLORS.bright}${filename}${COLORS.reset}`);
     } catch (err) {
@@ -193,7 +210,7 @@ function extractSystemValueFromHtml(html, label) {
 }
 
 function getSanitizedName(processor) {
-    let name = processor.name.trim()
+    let name = processor.name.trim();
     if (name === "AMD Ryzen Threadripper PRO 9985WX s") {
         // There's a typo in the original dataset
         name = "AMD Ryzen Threadripper PRO 9985WX"
@@ -210,8 +227,6 @@ function logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, proces
     avgIterationTimeMs = iterationCount === 0
         ? lastIterationTime
         : (weight * lastIterationTime + (1 - weight) * (avgIterationTimeMs || 0));
-
-    iterationCount++;
 
     const remainingProcessors = benchmarks.length - index - 1;
     const estimatedTimeRemainingMin = (remainingProcessors * avgIterationTimeMs / 1000 / 60).toFixed(2);
