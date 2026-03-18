@@ -26,7 +26,11 @@ jobs:
           git config user.name "r59q bot"
           git config user.email "no-reply@r59q.com"
           git add cpu-list.v1.json
-          git commit -m "Update JSON"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update JSON"
+            git push
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
