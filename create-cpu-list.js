@@ -1,6 +1,7 @@
 const GEEKBENCH_PROCESSOR_BENCHMARKS_URL = "https://browser.geekbench.com/processor-benchmarks.json";
 const VERSION_NO = "1";
 // Delay will increase each time we hit a 429 (exponential back-off)
+const initialFetchDelay = 50;
 let fetchDelay = 50;
 
 main().catch(err => {
@@ -18,14 +19,14 @@ async function main() {
 
     console.log(`Fetched${benchmarks.length} processors. Fetching threads for each processor...`);
 
-    const enrichedBenchmarks =[]
+    const enrichedBenchmarks = {};
     for (let i = 0; i < benchmarks.length; i++) {
         const enrichStart = Date.now();
         const processor = benchmarks[i];
 
         try {
-            const enriched = await enrichBenchmark(processor);
-            enrichedBenchmarks.push(enriched)
+            enrichedBenchmarks[processor.name] = await enrichBenchmark(processor);
+            fetchDelay = initialFetchDelay; // reset fetch delay after a successful fetch
         } catch (error) {
             console.error(`Failed to enrich benchmark for ${processor.name}: ${error.message}`);
         }
@@ -50,7 +51,10 @@ const enrichBenchmark = async (benchmark) => {
         frequency,
         boost_frequency: enrichedSpecs.boostFrequency,
         cores: parseInt(coreCount[1], 10),
-        threads: enrichedSpecs.threads
+        threads: enrichedSpecs.threads,
+        package: enrichedSpecs.package,
+        tdp: enrichedSpecs.tdp,
+        gpu: enrichedSpecs.gpu
     };
 };
 
@@ -122,9 +126,15 @@ function buildProcessorDetailsUrl(name, { withRadeonGraphics = false, singulariz
 async function fetchProcessorSpecsWithRetry(detailsUrl, baseFrequency) {
     let resp = await retryingFetchWithBackoff(detailsUrl);
     const scrapedHTML = await resp.text();
+    const rawTdp = extractSystemValueFromHtml(scrapedHTML, 'TDP');
+    const tdp = rawTdp ? parseInt(rawTdp.replace(/[^0-9]/g, ''), 10) : null;
+
     return {
         threads: extractThreadsFromHtml(scrapedHTML),
-        boostFrequency: extractBoostFrequencyFromHtml(scrapedHTML, baseFrequency)
+        boostFrequency: extractBoostFrequencyFromHtml(scrapedHTML, baseFrequency),
+        package: extractSystemValueFromHtml(scrapedHTML, 'Package'),
+        tdp: tdp,
+        gpu: extractSystemValueFromHtml(scrapedHTML, 'GPU')
     };
 }
 
