@@ -17,6 +17,8 @@ The output and types of the fields are as follows in the table
 | frequency | number | Base frequency in GHz |
 | boost_frequency | number | Boost frequency in GHz |
 | cores | number | Number of CPU cores |
+| performance_cores | number or null | Number of performance cores (if applicable) |
+| efficiency_cores | number or null | Number of efficiency cores (if applicable) |
 | threads | number | Number of CPU threads |
 | package | string or null | CPU package type (e.g. "Socket FP8") |
 | tdp | number or null | Thermal Design Power in watts |
@@ -63,37 +65,41 @@ Example output:
 ```json
 
 {
- "AMD Ryzen Threadripper PRO 9965WX": {
-  "id": 4184,
-  "name": "AMD Ryzen Threadripper PRO 9965WX",
-  "samples": 31,
-  "score": 3042,
-  "multicore_score": 25847,
-  "icon": "amd",
-  "family": "Shimada Peak",
-  "frequency": 4.2,
-  "boost_frequency": 5.4,
-  "cores": 24,
-  "threads": 48,
-  "package": null,
-  "tdp": 350,
-  "gpu": null
- },
- "AMD Ryzen 5 220": {
-   "id": 4190,
-   "name": "AMD Ryzen 5 220",
-   "samples": 235,
-   "score": 2163,
-   "multicore_score": 7203,
-   "icon": "amd",
-   "family": "Hawk Point",
-   "frequency": 3.2,
-   "boost_frequency": 4.9,
-   "cores": 6,
-   "threads": 12,
-   "package": "Socket FP8",
-   "tdp": 28,
-   "gpu": "Radeon 740M Graphics"
+  "AMD Ryzen Threadripper PRO 9965WX": {
+    "id": 4184,
+    "name": "AMD Ryzen Threadripper PRO 9965WX",
+    "samples": 31,
+    "score": 3042,
+    "multicore_score": 25847,
+    "icon": "amd",
+    "family": "Shimada Peak",
+    "frequency": 4.2,
+    "boost_frequency": 5.4,
+    "cores": 24,
+    "performance_cores": null,
+    "efficiency_cores": null,
+    "threads": 48,
+    "package": null,
+    "tdp": 350,
+    "gpu": null
+  },
+  "AMD Ryzen 5 220": {
+    "id": 4190,
+    "name": "AMD Ryzen 5 220",
+    "samples": 235,
+    "score": 2163,
+    "multicore_score": 7203,
+    "icon": "amd",
+    "family": "Hawk Point",
+    "frequency": 3.2,
+    "boost_frequency": 4.9,
+    "cores": 6,
+    "performance_cores": null,
+    "efficiency_cores": null,
+    "threads": 12,
+    "package": "Socket FP8",
+    "tdp": 28,
+    "gpu": "Radeon 740M Graphics"
   }
 }
 ```
