@@ -19,7 +19,7 @@ jobs:
           node-version: 24
 
       - name: Run script
-        run: node projects/geekbench-cpu-specs/create-cpu-list.js
+        run: node create-cpu-list.js
 
       - name: Commit and push JSON
         run: |
