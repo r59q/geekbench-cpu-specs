@@ -1,7 +1,7 @@
 # Geekbench CPU specs
 
-A simple node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
- and refines the results, adding boost frequency, number of threads, gpu and tdp by webscraping their own cpu index site.
+A simple, no-dependency node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
+ and refines the results, adding boost frequency, number of threads, gpu and tdp by regex webscraping their own cpu index site.
 
 ## Output overview
 The output and types of the fields are as follows in the table
