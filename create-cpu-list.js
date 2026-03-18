@@ -1,5 +1,6 @@
 const GEEKBENCH_PROCESSOR_BENCHMARKS_URL = "https://browser.geekbench.com/processor-benchmarks.json";
 const VERSION_NO = "1";
+
 // Delay will increase each time we hit a 429 (exponential back-off)
 const initialFetchDelay = 50;
 let fetchDelay = 50;
@@ -17,9 +18,10 @@ main().catch(err => {
  */
 async function main() {
     let iterationCount = 0;
+    log.step("Fetching benchmarks list...");
     const benchmarks = (await (await retryingFetchWithBackoff(GEEKBENCH_PROCESSOR_BENCHMARKS_URL)).json()).devices
 
-    console.log(`Fetched${benchmarks.length} processors. Fetching threads for each processor...`);
+    log.success(`Fetched ${COLORS.bright}${benchmarks.length}${COLORS.reset} processors.`);
 
     const enrichedBenchmarks = {};
     for (let i = 0; i < benchmarks.length; i++) {
@@ -30,12 +32,15 @@ async function main() {
             enrichedBenchmarks[processor.name] = await enrichBenchmark(processor);
             fetchDelay = initialFetchDelay; // reset fetch delay after a successful fetch
         } catch (error) {
-            console.error(`Failed to enrich benchmark for ${processor.name}: ${error.message}`);
+            process.stdout.write('\n');
+            log.error(`Failed to enrich benchmark for ${processor.name}: ${error.message}`);
         }
 
         const enrichEnd = Date.now();
         logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, processor, i);
     }
+    process.stdout.write('\n');
+    log.step("Finalizing...");
     // Export CPU list to JSON after scraping completes
     await exportCpuListToJson(enrichedBenchmarks, outputFileName);
 }
@@ -46,7 +51,7 @@ const enrichBenchmark = async (benchmark) => {
     const coreCount = description.match(/\((\d+) cores?\)/);
     const frequency = parseFrequencyGHz(description);
     const detailsUrls = buildProcessorDetailsUrls(processor.name);
-    console.log(`fetching threads and boost frequency for ${processor.name} at ${detailsUrls[0]}`);
+    // Removed old console.log here to keep progress bar clean
     const enrichedSpecs = await getProcessorSpecsFromUrls(detailsUrls, frequency, processor);
     // we omit description for the enriched list since it's not needed after extracting frequency and core count
     return {
@@ -63,12 +68,12 @@ const enrichBenchmark = async (benchmark) => {
 
 async function getProcessorSpecsFromUrls(detailsUrls, frequency, processor) {
     let processorSpecs;
-    for (url of detailsUrls) {
+    for (const url of detailsUrls) {
         try {
             processorSpecs = await fetchProcessorSpecsWithRetry(url, frequency);
             break; // if we succeed, no need to try other URLs
         } catch (error) {
-            console.warn(`Failed to fetch details for ${processor.name} at ${url}: ${error.message} will try next URL variation if available.`);
+            // Keep internal warnings quiet or formatted if they ever happen
         }
     }
     if (!processorSpecs) {
@@ -85,7 +90,8 @@ async function retryingFetchWithBackoff(url, retries = 8) {
             const retryAfter = response.headers.get('Retry-After');
             fetchDelay *= 2; // Exponential backoff
             const waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : fetchDelay;
-            console.warn(`Received 429 Too Many Requests when fetching ${url}. Waiting ${waitTime}ms before retrying...`);
+            process.stdout.write('\n');
+            log.warn(`Rate limit hit for ${url}. Waiting ${(waitTime / 1000).toFixed(1)}s...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
             if (!response.ok) {
@@ -125,11 +131,15 @@ async function fetchProcessorSpecsWithRetry(detailsUrl, baseFrequency) {
     const rawTdp = extractSystemValueFromHtml(scrapedHTML, 'TDP');
     const tdp = rawTdp ? parseInt(rawTdp.replace(/[^0-9]/g, ''), 10) : null;
 
+    const rawMaxTdp = extractSystemValueFromHtml(scrapedHTML, 'Maximum Power');
+    const maxTdp = rawMaxTdp ? parseInt(rawMaxTdp.replace(/[^0-9]/g, ''), 10) : tdp;
+
     return {
         threads: extractThreadsFromHtml(scrapedHTML),
         boostFrequency: extractBoostFrequencyFromHtml(scrapedHTML, baseFrequency),
         package: extractSystemValueFromHtml(scrapedHTML, 'Package'),
         tdp: tdp,
+        max_tdp: maxTdp,
         gpu: extractSystemValueFromHtml(scrapedHTML, 'GPU')
     };
 }
@@ -151,9 +161,9 @@ async function exportCpuListToJson(cpuList, filename) {
     try {
         const fs = require('fs').promises;
         await fs.writeFile(filename, json, 'utf8');
-        console.log(`JSON written to ${filename}`);
+        log.success(`JSON written to ${COLORS.bright}${filename}${COLORS.reset}`);
     } catch (err) {
-        console.error('Failed to write JSON file:', err);
+        log.error(`Failed to write JSON file: ${err.message}`);
         throw err;
     }
 
@@ -190,12 +200,13 @@ function getSanitizedName(processor) {
     return name;
 }
 
+let avgIterationTimeMs; // Moved outside to keep state across calls
 function logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, processor, index) {
     const lastIterationTime = enrichEnd - enrichStart;
 
     // Use a weighted moving average for iteration time
     const weight = 0.7; // Recent iterations have 70% weight
-    const avgIterationTimeMs = iterationCount === 0
+    avgIterationTimeMs = iterationCount === 0
         ? lastIterationTime
         : (weight * lastIterationTime + (1 - weight) * (avgIterationTimeMs || 0));
 
@@ -203,5 +214,32 @@ function logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, proces
 
     const remainingProcessors = benchmarks.length - index - 1;
     const estimatedTimeRemainingMin = (remainingProcessors * avgIterationTimeMs / 1000 / 60).toFixed(2);
-    console.log(`${index + 1}/${benchmarks.length}: ${processor.name}. Estimated time remaining: ${estimatedTimeRemainingMin} minutes (avg ${(avgIterationTimeMs / 1000).toFixed(2)}s/cpu)`);
+    log.progress(index + 1, benchmarks.length, processor.name, estimatedTimeRemainingMin, (avgIterationTimeMs / 1000).toFixed(2));
 }
+
+const COLORS = {
+    reset: "\x1b[0m",
+    bright: "\x1b[1m",
+    dim: "\x1b[2m",
+    blue: "\x1b[34m",
+    cyan: "\x1b[36m",
+    green: "\x1b[32m",
+    yellow: "\x1b[33m",
+    red: "\x1b[31m",
+    magenta: "\x1b[35m"
+};
+
+const log = {
+    info: (msg) => console.log(`${COLORS.blue}ℹ${COLORS.reset} ${msg}`),
+    success: (msg) => console.log(`${COLORS.green}✔${COLORS.reset} ${msg}`),
+    warn: (msg) => console.warn(`${COLORS.yellow}⚠${COLORS.reset} ${COLORS.yellow}${msg}${COLORS.reset}`),
+    error: (msg) => console.error(`${COLORS.red}✖${COLORS.reset} ${COLORS.bright}${COLORS.red}${msg}${COLORS.reset}`),
+    step: (msg) => console.log(`${COLORS.cyan}➤${COLORS.reset} ${COLORS.bright}${msg}${COLORS.reset}`),
+    progress: (current, total, name, eta, avg) => {
+        const percent = Math.round((current / total) * 100);
+        const barLength = 20;
+        const filledLength = Math.round((current / total) * barLength);
+        const bar = "█".repeat(filledLength) + "░".repeat(barLength - filledLength);
+        process.stdout.write(`\r${COLORS.cyan}[${bar}]${COLORS.reset} ${COLORS.bright}${percent}%${COLORS.reset} | ${COLORS.dim}${current}/${total}${COLORS.reset} | ${COLORS.blue}${name}${COLORS.reset} | ${COLORS.yellow}ETA: ${eta}m${COLORS.reset} (${COLORS.dim}${avg}s/cpu${COLORS.reset})      `);
+    }
+};
