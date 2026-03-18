@@ -3,7 +3,6 @@ const VERSION_NO = "1";
 
 // Delay will increase each time we hit a 429 (exponential back-off)
 const initialFetchDelay = 50;
-let fetchDelay = 50;
 
 const args = process.argv.slice(2);
 const outputFileName = args[0] || `cpu-list.v${VERSION_NO}.json`;
@@ -25,7 +24,6 @@ async function main() {
 
         try {
             enrichedBenchmarks[processor.name] = await enrichBenchmark(processor);
-            fetchDelay = initialFetchDelay; // reset fetch delay after a successful fetch
         } catch (error) {
             process.stdout.write('\n');
             log.error(`Failed to enrich benchmark for ${processor.name}: ${error.message}`);
@@ -46,7 +44,6 @@ const enrichBenchmark = async (benchmark) => {
     const coreCount = description.match(/\((\d+) cores?\)/);
     const frequency = parseFrequencyGHz(description);
     const detailsUrls = buildProcessorDetailsUrls(processor.name);
-    // Removed old console.log here to keep progress bar clean
     const enrichedSpecs = await getProcessorSpecsFromUrls(detailsUrls, frequency, processor);
     // we omit description for the enriched list since it's not needed after extracting frequency and core count
     return {
@@ -68,9 +65,9 @@ async function getProcessorSpecsFromUrls(detailsUrls, frequency, processor) {
     for (const url of detailsUrls) {
         try {
             processorSpecs = await fetchProcessorSpecsWithRetry(url, frequency);
-            break; // if we succeed, no need to try other URLs
+            break;
         } catch (error) {
-            // Keep internal warnings quiet or formatted if they ever happen
+            // WIll attempt next URL variation if there's an error
         }
     }
     if (!processorSpecs) {
@@ -81,11 +78,13 @@ async function getProcessorSpecsFromUrls(detailsUrls, frequency, processor) {
 }
 
 async function retryingFetchWithBackoff(url, retries = 8) {
+    let fetchDelay = initialFetchDelay;
     for (let attempt = 0; attempt < retries; attempt++) {
         const response = await fetch(url);
         if (response.status === 429) {
+            // Respect the Retry-After header if present, otherwise use exponential backoff
             const retryAfter = response.headers.get('Retry-After');
-            fetchDelay *= 2; // Exponential backoff
+            fetchDelay *= 2;
             const waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : fetchDelay;
             process.stdout.write('\n');
             log.warn(`Rate limit hit for ${url}. Waiting ${(waitTime / 1000).toFixed(1)}s...`);
@@ -202,12 +201,12 @@ function getSanitizedName(processor) {
     return name;
 }
 
-let avgIterationTimeMs; // Moved outside to keep state across calls
+let avgIterationTimeMs;
 function logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, processor, index) {
     const lastIterationTime = enrichEnd - enrichStart;
 
     // Use a weighted moving average for iteration time
-    const weight = 0.7; // Recent iterations have 70% weight
+    const weight = 0.4; // The higher the weight, the more influence the last iteration has on the average
     avgIterationTimeMs = iterationCount === 0
         ? lastIterationTime
         : (weight * lastIterationTime + (1 - weight) * (avgIterationTimeMs || 0));

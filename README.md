@@ -1,10 +1,11 @@
-# Geekbench CPU specs
+# Geekbench CPU Specs
 List of all CPUs in Geekbench with their specs. See [cpu-list.v1.json](cpu-list.v1.json) for the actual data.
+Updated once per week automatically.
 
  To generate it, a simple, no-dependency node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
  and refines the results, adding boost frequency, number of threads, performance/efficiency cores, gpu and tdp by regex webscraping their own cpu index site.
 
-## Output overview
+## Output Overview
 The output and types of the fields are as follows in the table
 | Field | Type | Description |
 |---|---|---|
@@ -27,7 +28,7 @@ The output and types of the fields are as follows in the table
 
 ## Testing it quickly
 
-Using node
+Using node through terminal
 ```shell
 echo 'fetch("https://raw.githubusercontent.com/r59q/geekbench-cpu-specs/refs/heads/master/cpu-list.v1.json")
   .then(res => res.json())
@@ -104,3 +105,5 @@ Example output:
   }
 }
 ```
+
+For any questions, suggestions or issues please open an issue in the repository. I'll be happy to add anything I've missed and feel free to open a PR if you want to contribute with improvements or fixes.

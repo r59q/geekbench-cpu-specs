@@ -1,0 +1,35 @@
+name: Update JSON
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run script
+        run: node projects/geekbench-cpu-specs/create-cpu-list.js
+
+      - name: Commit and push JSON
+        run: |
+          git config user.name "r59q bot"
+          git config user.email "no-reply@r59q.com"
+          git add cpu-list.v1.json
+          git commit -m "Update JSON"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
