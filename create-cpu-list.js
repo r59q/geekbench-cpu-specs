@@ -8,11 +8,6 @@ let fetchDelay = 50;
 const args = process.argv.slice(2);
 const outputFileName = args[0] || `cpu-list.v${VERSION_NO}.json`;
 
-main().catch(err => {
-    console.error("Error fetching CPU data:", err);
-    process.exitCode = 1;
-});
-
 /**
  * Fetches list of geekbench processors. Enriching the results by scraping each processor's details page to get thread count and boost frequency, which are not included in the initial JSON response. Exports the enriched list to a JSON file.
  */
@@ -59,6 +54,8 @@ const enrichBenchmark = async (benchmark) => {
         frequency,
         boost_frequency: enrichedSpecs.boostFrequency,
         cores: parseInt(coreCount[1], 10),
+        performance_cores: enrichedSpecs.performanceCores,
+        efficiency_cores: enrichedSpecs.efficiencyCores,
         threads: enrichedSpecs.threads,
         package: enrichedSpecs.package,
         tdp: enrichedSpecs.tdp,
@@ -134,9 +131,14 @@ async function fetchProcessorSpecsWithRetry(detailsUrl, baseFrequency) {
     const rawMaxTdp = extractSystemValueFromHtml(scrapedHTML, 'Maximum Power');
     const maxTdp = rawMaxTdp ? parseInt(rawMaxTdp.replace(/[^0-9]/g, ''), 10) : tdp;
 
+    const rawPcores = extractSystemValueFromHtml(scrapedHTML, 'Performance Cores');
+    const rawEcores = extractSystemValueFromHtml(scrapedHTML, 'Efficient Cores');
+
     return {
         threads: extractThreadsFromHtml(scrapedHTML),
         boostFrequency: extractBoostFrequencyFromHtml(scrapedHTML, baseFrequency),
+        performanceCores: rawPcores ? parseInt(rawPcores.replace(/[^0-9]/g, ''), 10) : null,
+        efficiencyCores: rawEcores ? parseInt(rawEcores.replace(/[^0-9]/g, ''), 10) : null,
         package: extractSystemValueFromHtml(scrapedHTML, 'Package'),
         tdp: tdp,
         max_tdp: maxTdp,
@@ -243,3 +245,9 @@ const log = {
         process.stdout.write(`\r${COLORS.cyan}[${bar}]${COLORS.reset} ${COLORS.bright}${percent}%${COLORS.reset} | ${COLORS.dim}${current}/${total}${COLORS.reset} | ${COLORS.blue}${name}${COLORS.reset} | ${COLORS.yellow}ETA: ${eta}m${COLORS.reset} (${COLORS.dim}${avg}s/cpu${COLORS.reset})      `);
     }
 };
+
+// Entry point
+main().catch(err => {
+    console.error("Error fetching CPU data:", err);
+    process.exitCode = 1;
+});
