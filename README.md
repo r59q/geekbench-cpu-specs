@@ -30,6 +30,11 @@ node create-cpu-list.js
 ```
 This will generate a file cpu-list.v1.json. This process will take a little less than 1 hour, to not trigger rate-limit.
 
+You can also specify a filename
+```shell
+node create-cpu-list.js geekbench-cpu-list.json
+```
+
 You can also just download the cpu-list.json file from this repository. It will be the same file you can generate running it yourself.
 
 Example output:

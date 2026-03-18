@@ -4,6 +4,9 @@ const VERSION_NO = "1";
 const initialFetchDelay = 50;
 let fetchDelay = 50;
 
+const args = process.argv.slice(2);
+const outputFileName = args[0] || `cpu-list.v${VERSION_NO}.json`;
+
 main().catch(err => {
     console.error("Error fetching CPU data:", err);
     process.exitCode = 1;
@@ -13,7 +16,6 @@ main().catch(err => {
  * Fetches list of geekbench processors. Enriching the results by scraping each processor's details page to get thread count and boost frequency, which are not included in the initial JSON response. Exports the enriched list to a JSON file.
  */
 async function main() {
-    let totalIterationTimeMs = 0;
     let iterationCount = 0;
     const benchmarks = (await (await retryingFetchWithBackoff(GEEKBENCH_PROCESSOR_BENCHMARKS_URL)).json()).devices
 
@@ -32,20 +34,21 @@ async function main() {
         }
 
         const enrichEnd = Date.now();
-        logIteration(enrichEnd, enrichStart, totalIterationTimeMs, iterationCount, benchmarks, processor, i);
+        logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, processor, i);
     }
     // Export CPU list to JSON after scraping completes
-    await exportCpuListToJson(enrichedBenchmarks, `cpu-list.v${VERSION_NO}.json`);
+    await exportCpuListToJson(enrichedBenchmarks, outputFileName);
 }
 
 const enrichBenchmark = async (benchmark) => {
-    const {description, ...processor} = benchmark; // we omit description for the enriched list since it's not needed after extracting frequency and core count
+    const {description, ...processor} = benchmark;
     processor.name = getSanitizedName(processor);
     const coreCount = description.match(/\((\d+) cores?\)/);
     const frequency = parseFrequencyGHz(description);
     const detailsUrls = buildProcessorDetailsUrls(processor.name);
     console.log(`fetching threads and boost frequency for ${processor.name} at ${detailsUrls[0]}`);
     const enrichedSpecs = await getProcessorSpecsFromUrls(detailsUrls, frequency, processor);
+    // we omit description for the enriched list since it's not needed after extracting frequency and core count
     return {
         ...processor,
         frequency,
@@ -65,7 +68,7 @@ async function getProcessorSpecsFromUrls(detailsUrls, frequency, processor) {
             processorSpecs = await fetchProcessorSpecsWithRetry(url, frequency);
             break; // if we succeed, no need to try other URLs
         } catch (error) {
-            console.warn(`Failed to fetch details for ${processor.name} at ${url}: ${error.message}`);
+            console.warn(`Failed to fetch details for ${processor.name} at ${url}: ${error.message} will try next URL variation if available.`);
         }
     }
     if (!processorSpecs) {
@@ -97,28 +100,21 @@ async function retryingFetchWithBackoff(url, retries = 8) {
 function buildProcessorDetailsUrls(name) {
     const urls = [
         buildProcessorDetailsUrl(name),
-        buildProcessorDetailsUrl(name, { singularizeTrailingS: true }),
         buildProcessorDetailsUrl(name, { withRadeonGraphics: true }),
-        buildProcessorDetailsUrl(name, { withRadeonGraphics: true, singularizeTrailingS: true })
     ];
     return [...new Set(urls)];
 }
 
-/**
- * Creates the correct URL to scrape the data from, handling various naming inconsistencies in the Geekbench dataset.
- */
-function buildProcessorDetailsUrl(name, { withRadeonGraphics = false, singularizeTrailingS = false } = {}) {
+function buildProcessorDetailsUrl(name, { withRadeonGraphics = false } = {}) {
     let slug = name
         .replace(/\+/g, '')
         .replace(/\//g, '-')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
         .toLowerCase();
+    // A specific cpu has this in it's URL for some reason, but not in it's name.
     if (withRadeonGraphics && !slug.endsWith('-with-radeon-graphics')) {
         slug += '-with-radeon-graphics';
-    }
-    if (singularizeTrailingS && slug.endsWith('-s')) {
-        slug = slug.slice(0, -2);
     }
     return `https://browser.geekbench.com/processors/${slug}`;
 }
@@ -149,7 +145,7 @@ function parseFrequencyGHz(description) {
     return unit === 'M' ? value / 1000 : value;
 }
 
-async function exportCpuListToJson(cpuList, filename = 'cpu-list.json') {
+async function exportCpuListToJson(cpuList, filename) {
     const json = JSON.stringify(cpuList, null, 2);
 
     try {
@@ -194,11 +190,17 @@ function getSanitizedName(processor) {
     return name;
 }
 
-function logIteration(enrichEnd, enrichStart, totalIterationTimeMs, iterationCount, benchmarks, processor, index) {
+function logIteration(enrichEnd, enrichStart, iterationCount, benchmarks, processor, index) {
     const lastIterationTime = enrichEnd - enrichStart;
-    totalIterationTimeMs += lastIterationTime;
+
+    // Use a weighted moving average for iteration time
+    const weight = 0.7; // Recent iterations have 70% weight
+    const avgIterationTimeMs = iterationCount === 0
+        ? lastIterationTime
+        : (weight * lastIterationTime + (1 - weight) * (avgIterationTimeMs || 0));
+
     iterationCount++;
-    const avgIterationTimeMs = totalIterationTimeMs / iterationCount;
+
     const remainingProcessors = benchmarks.length - index - 1;
     const estimatedTimeRemainingMin = (remainingProcessors * avgIterationTimeMs / 1000 / 60).toFixed(2);
     console.log(`${index + 1}/${benchmarks.length}: ${processor.name}. Estimated time remaining: ${estimatedTimeRemainingMin} minutes (avg ${(avgIterationTimeMs / 1000).toFixed(2)}s/cpu)`);
