@@ -1,91 +1,93 @@
-// Fetches Geekbench CPU data, enriches it with thread counts and boost frequencies, and exports the results to JSON.
-async function fetchCpuData(delayMs = 1400) {
-    let currentDelay = delayMs;
-    // Fetch processor list and check for HTTP 429 (Too Many Requests)
-    let listResp = await fetch("https://browser.geekbench.com/processor-benchmarks.json");
-    if (listResp.status === 429) {
-        const retryAfter = listResp.headers.get('Retry-After');
-        let waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : (currentDelay * 2);
-        console.warn(`Received 429 Too Many Requests when fetching processor list. Retrying after ${waitTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        listResp = await fetch("https://browser.geekbench.com/processor-benchmarks.json");
-    }
-    if (!listResp.ok) {
-        throw new Error(`Failed to fetch processor list: ${listResp.status} ${listResp.statusText}`);
-    }
-    const processorList = (await listResp.json()).devices
-    console.log(`Fetched${processorList.length} processors. Fetching threads for each processor...`);
+const GEEKBENCH_PROCESSOR_BENCHMARKS_URL = "https://browser.geekbench.com/processor-benchmarks.json";
+const VERSION_NO = "1";
+// Delay will increase each time we hit a 429 (exponential back-off)
+let fetchDelay = 50;
 
+main().catch(err => {
+    console.error("Error fetching CPU data:", err);
+    process.exitCode = 1;
+});
+
+/**
+ * Fetches list of geekbench processors. Enriching the results by scraping each processor's details page to get thread count and boost frequency, which are not included in the initial JSON response. Exports the enriched list to a JSON file.
+ */
+async function main() {
     let totalIterationTimeMs = 0;
     let iterationCount = 0;
+    const benchmarks = (await (await retryingFetchWithBackoff(GEEKBENCH_PROCESSOR_BENCHMARKS_URL)).json()).devices
 
-    console.log("Estimated time: " + (processorList.length * 1000 / 60).toFixed(2) + " minutes");
-    const processorListWithThreads =[]
-    for (let i = 0; i < processorList.length; i++) {
-        const iterationStart = Date.now();
-        const {description, ...processor} = processorList[i];
-        processor.name = processor.name.trim()
-        if (processor.name === "AMD Ryzen Threadripper PRO 9985WX s") {
-            // There's a typo in the original dataset
-            processor.name = "AMD Ryzen Threadripper PRO 9985WX"
+    console.log(`Fetched${benchmarks.length} processors. Fetching threads for each processor...`);
+
+    const enrichedBenchmarks =[]
+    for (let i = 0; i < benchmarks.length; i++) {
+        const enrichStart = Date.now();
+        const processor = benchmarks[i];
+
+        try {
+            const enriched = await enrichBenchmark(processor);
+            enrichedBenchmarks.push(enriched)
+        } catch (error) {
+            console.error(`Failed to enrich benchmark for ${processor.name}: ${error.message}`);
         }
-        const coreCount = description.match(/\((\d+) cores?\)/);
-        const frequency = parseFrequencyGHz(description);
-        const detailsUrls = buildProcessorDetailsUrls(processor.name);
-        console.log(`fetching threads and boost frequency for ${processor.name} at ${detailsUrls[0]}`);
-        let processorSpecs;
-        let originalError;
-        for (let urlIndex = 0; urlIndex < detailsUrls.length; urlIndex++) {
-            const candidateUrl = detailsUrls[urlIndex];
-            if (urlIndex > 0) {
-                console.log(`Retrying ${processor.name} at ${candidateUrl}`);
-            }
-            try {
-                // Modified to pass the current delay and a way to update it if needed
-                processorSpecs = await fetchProcessorSpecsWithRetry(candidateUrl, frequency, currentDelay);
-                // If we succeeded and have a new delay recommended, we could update it,
-                // but usually we just want to handle the 429 inside the fetcher.
-                break;
-            } catch (error) {
-                if (error.message.includes('Too Many Requests')) {
-                    // If even after internal retry it fails with 429, we double the global delay for the rest of the run
-                    currentDelay *= 2;
-                    console.log(`Persistent 429. Increasing base delay to ${currentDelay}ms`);
-                }
-                if (!originalError) {
-                    originalError = error;
-                }
-            }
-        }
-        if (!processorSpecs) {
-            throw originalError;
-        }
-        const { threads, boostFrequency } = processorSpecs;
 
-        // sleep between requests to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, currentDelay));
-
-        const iterationEnd = Date.now();
-        const lastIterationTime = iterationEnd - iterationStart;
-        totalIterationTimeMs += lastIterationTime;
-        iterationCount++;
-
-        const avgIterationTimeMs = totalIterationTimeMs / iterationCount;
-        const remainingProcessors = processorList.length - i - 1;
-        const estimatedTimeRemainingMin = (remainingProcessors * avgIterationTimeMs / 1000 / 60).toFixed(2);
-
-        console.log(`${i + 1}/${processorList.length}: ${processor.name} - ${threads} threads. Estimated time remaining: ${estimatedTimeRemainingMin} minutes (avg ${ (avgIterationTimeMs / 1000).toFixed(2) }s/cpu)`);
-
-        processorListWithThreads.push({
-            ...processor,
-            frequency,
-            boost_frequency: boostFrequency,
-            cores: parseInt(coreCount[1], 10),
-            threads
-        });
+        const enrichEnd = Date.now();
+        logIteration(enrichEnd, enrichStart, totalIterationTimeMs, iterationCount, benchmarks, processor, i);
     }
     // Export CPU list to JSON after scraping completes
-    await exportCpuListToJson(processorListWithThreads, 'cpu-list.json');
+    await exportCpuListToJson(enrichedBenchmarks, `cpu-list.v${VERSION_NO}.json`);
+}
+
+const enrichBenchmark = async (benchmark) => {
+    const {description, ...processor} = benchmark; // we omit description for the enriched list since it's not needed after extracting frequency and core count
+    processor.name = getSanitizedName(processor);
+    const coreCount = description.match(/\((\d+) cores?\)/);
+    const frequency = parseFrequencyGHz(description);
+    const detailsUrls = buildProcessorDetailsUrls(processor.name);
+    console.log(`fetching threads and boost frequency for ${processor.name} at ${detailsUrls[0]}`);
+    const enrichedSpecs = await getProcessorSpecsFromUrls(detailsUrls, frequency, processor);
+    return {
+        ...processor,
+        frequency,
+        boost_frequency: enrichedSpecs.boostFrequency,
+        cores: parseInt(coreCount[1], 10),
+        threads: enrichedSpecs.threads
+    };
+};
+
+async function getProcessorSpecsFromUrls(detailsUrls, frequency, processor) {
+    let processorSpecs;
+    for (url of detailsUrls) {
+        try {
+            processorSpecs = await fetchProcessorSpecsWithRetry(url, frequency);
+            break; // if we succeed, no need to try other URLs
+        } catch (error) {
+            console.warn(`Failed to fetch details for ${processor.name} at ${url}: ${error.message}`);
+        }
+    }
+    if (!processorSpecs) {
+        console.error(`Failed to fetch details for ${processor.name} after trying all URL variations.`);
+        throw new Error(`Failed to fetch details for ${processor.name}`);
+    }
+    return processorSpecs;
+}
+
+async function retryingFetchWithBackoff(url, retries = 8) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+        const response = await fetch(url);
+        if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After');
+            fetchDelay *= 2; // Exponential backoff
+            const waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : fetchDelay;
+            console.warn(`Received 429 Too Many Requests when fetching ${url}. Waiting ${waitTime}ms before retrying...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        } else {
+            if (!response.ok) {
+                throw new Error(`Failed to fetch details from ${url}: ${response.status} ${response.statusText}`);
+            }
+            return response;
+        }
+    }
+    throw new Error(`Failed to fetch ${url} after ${retries} attempts due to repeated 429 responses.`);
 }
 
 function buildProcessorDetailsUrls(name) {
@@ -98,6 +100,9 @@ function buildProcessorDetailsUrls(name) {
     return [...new Set(urls)];
 }
 
+/**
+ * Creates the correct URL to scrape the data from, handling various naming inconsistencies in the Geekbench dataset.
+ */
 function buildProcessorDetailsUrl(name, { withRadeonGraphics = false, singularizeTrailingS = false } = {}) {
     let slug = name
         .replace(/\+/g, '')
@@ -114,22 +119,8 @@ function buildProcessorDetailsUrl(name, { withRadeonGraphics = false, singulariz
     return `https://browser.geekbench.com/processors/${slug}`;
 }
 
-async function fetchProcessorSpecsWithRetry(detailsUrl, baseFrequency, currentDelay) {
-    let resp = await fetch(detailsUrl);
-    if (resp.status === 429) {
-        const retryAfter = resp.headers.get('Retry-After');
-        let waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : (currentDelay * 2);
-        console.warn(`Received 429 Too Many Requests when fetching ${detailsUrl}. Waiting ${waitTime}ms before retrying once...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        resp = await fetch(detailsUrl);
-    }
-
-    if (resp.status === 429) {
-        throw new Error('Too Many Requests');
-    }
-    if (!resp.ok) {
-        throw new Error(`Failed to fetch details from ${detailsUrl}: ${resp.status} ${resp.statusText}`);
-    }
+async function fetchProcessorSpecsWithRetry(detailsUrl, baseFrequency) {
+    let resp = await retryingFetchWithBackoff(detailsUrl);
     const scrapedHTML = await resp.text();
     return {
         threads: extractThreadsFromHtml(scrapedHTML),
@@ -184,21 +175,21 @@ function extractSystemValueFromHtml(html, label) {
     return match?.[1]?.trim() ?? null;
 }
 
-function parseDelayMsArg(argv) {
-    const rawDelay = argv[2];
-    if (rawDelay === undefined) {
-        return 1400;
+function getSanitizedName(processor) {
+    let name = processor.name.trim()
+    if (name === "AMD Ryzen Threadripper PRO 9985WX s") {
+        // There's a typo in the original dataset
+        name = "AMD Ryzen Threadripper PRO 9985WX"
     }
-
-    if (!/^\d+$/.test(rawDelay)) {
-        throw new Error(`Invalid sleep delay: ${rawDelay}. Provide a non-negative integer in milliseconds.`);
-    }
-
-    return Number.parseInt(rawDelay, 10);
+    return name;
 }
 
-const delayMs = parseDelayMsArg(process.argv);
-fetchCpuData(delayMs).catch(err => {
-    console.error("Error fetching CPU data:", err);
-    process.exitCode = 1;
-});
+function logIteration(enrichEnd, enrichStart, totalIterationTimeMs, iterationCount, benchmarks, processor, index) {
+    const lastIterationTime = enrichEnd - enrichStart;
+    totalIterationTimeMs += lastIterationTime;
+    iterationCount++;
+    const avgIterationTimeMs = totalIterationTimeMs / iterationCount;
+    const remainingProcessors = benchmarks.length - index - 1;
+    const estimatedTimeRemainingMin = (remainingProcessors * avgIterationTimeMs / 1000 / 60).toFixed(2);
+    console.log(`${index + 1}/${benchmarks.length}: ${processor.name}. Estimated time remaining: ${estimatedTimeRemainingMin} minutes (avg ${(avgIterationTimeMs / 1000).toFixed(2)}s/cpu)`);
+}

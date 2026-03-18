@@ -7,15 +7,9 @@ Running it only requires NodeJS
 ```shell
 node create-cpu-list.js
 ```
-This will generate a file cpu-list.json. This process will take a little less than 1 hour, so as to not trigger rate-limit.
+This will generate a file cpu-list.v1.json. This process will take a little less than 1 hour, so as to not trigger rate-limit.
 
 You can also just download the cpu-list.json file from this repository. It will be the same file you can generate running it yourself.
-
-It works by webscraping, you can alter the sleep time in-between scrapes by giving the sleep duration as argument to avoid rate limits.
-```shell
-# Sleep for 3 seconds in-between network calls
-node create-cpu-list.js 3000 # default: 1400
-```
 
 Example output:
 ```json
