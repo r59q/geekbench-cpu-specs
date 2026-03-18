@@ -1,10 +1,28 @@
 // Fetches Geekbench CPU data, enriches it with thread counts and boost frequencies, and exports the results to JSON.
 async function fetchCpuData(delayMs = 1400) {
-    const processorList = (await (await fetch("https://browser.geekbench.com/processor-benchmarks.json")).json()).devices
+    let currentDelay = delayMs;
+    // Fetch processor list and check for HTTP 429 (Too Many Requests)
+    let listResp = await fetch("https://browser.geekbench.com/processor-benchmarks.json");
+    if (listResp.status === 429) {
+        const retryAfter = listResp.headers.get('Retry-After');
+        let waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : (currentDelay * 2);
+        console.warn(`Received 429 Too Many Requests when fetching processor list. Retrying after ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        listResp = await fetch("https://browser.geekbench.com/processor-benchmarks.json");
+    }
+    if (!listResp.ok) {
+        throw new Error(`Failed to fetch processor list: ${listResp.status} ${listResp.statusText}`);
+    }
+    const processorList = (await listResp.json()).devices
     console.log(`Fetched${processorList.length} processors. Fetching threads for each processor...`);
-    console.log("Estimated time: " + (processorList.length * delayMs / 1000 / 60).toFixed(2) + " minutes");
+
+    let totalIterationTimeMs = 0;
+    let iterationCount = 0;
+
+    console.log("Estimated time: " + (processorList.length * 1000 / 60).toFixed(2) + " minutes");
     const processorListWithThreads =[]
     for (let i = 0; i < processorList.length; i++) {
+        const iterationStart = Date.now();
         const {description, ...processor} = processorList[i];
         processor.name = processor.name.trim()
         if (processor.name === "AMD Ryzen Threadripper PRO 9985WX s") {
@@ -23,9 +41,17 @@ async function fetchCpuData(delayMs = 1400) {
                 console.log(`Retrying ${processor.name} at ${candidateUrl}`);
             }
             try {
-                processorSpecs = await fetchProcessorSpecsFromDetailsUrl(candidateUrl, frequency);
+                // Modified to pass the current delay and a way to update it if needed
+                processorSpecs = await fetchProcessorSpecsWithRetry(candidateUrl, frequency, currentDelay);
+                // If we succeeded and have a new delay recommended, we could update it,
+                // but usually we just want to handle the 429 inside the fetcher.
                 break;
             } catch (error) {
+                if (error.message.includes('Too Many Requests')) {
+                    // If even after internal retry it fails with 429, we double the global delay for the rest of the run
+                    currentDelay *= 2;
+                    console.log(`Persistent 429. Increasing base delay to ${currentDelay}ms`);
+                }
                 if (!originalError) {
                     originalError = error;
                 }
@@ -35,10 +61,21 @@ async function fetchCpuData(delayMs = 1400) {
             throw originalError;
         }
         const { threads, boostFrequency } = processorSpecs;
-        console.log(`Processed ${i + 1}/${processorList.length}: ${processor.name} - ${threads} threads. Estimated time remaining: ${(((processorList.length - i - 1) * delayMs / 1000) / 60).toFixed(2)} minutes`);
 
         // sleep between requests to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise(resolve => setTimeout(resolve, currentDelay));
+
+        const iterationEnd = Date.now();
+        const lastIterationTime = iterationEnd - iterationStart;
+        totalIterationTimeMs += lastIterationTime;
+        iterationCount++;
+
+        const avgIterationTimeMs = totalIterationTimeMs / iterationCount;
+        const remainingProcessors = processorList.length - i - 1;
+        const estimatedTimeRemainingMin = (remainingProcessors * avgIterationTimeMs / 1000 / 60).toFixed(2);
+
+        console.log(`${i + 1}/${processorList.length}: ${processor.name} - ${threads} threads. Estimated time remaining: ${estimatedTimeRemainingMin} minutes (avg ${ (avgIterationTimeMs / 1000).toFixed(2) }s/cpu)`);
+
         processorListWithThreads.push({
             ...processor,
             frequency,
@@ -77,9 +114,23 @@ function buildProcessorDetailsUrl(name, { withRadeonGraphics = false, singulariz
     return `https://browser.geekbench.com/processors/${slug}`;
 }
 
-async function fetchProcessorSpecsFromDetailsUrl(detailsUrl, baseFrequency) {
-    const scrape = await fetch(detailsUrl);
-    const scrapedHTML = await scrape.text();
+async function fetchProcessorSpecsWithRetry(detailsUrl, baseFrequency, currentDelay) {
+    let resp = await fetch(detailsUrl);
+    if (resp.status === 429) {
+        const retryAfter = resp.headers.get('Retry-After');
+        let waitTime = retryAfter ? (Number.parseInt(retryAfter, 10) * 1000) : (currentDelay * 2);
+        console.warn(`Received 429 Too Many Requests when fetching ${detailsUrl}. Waiting ${waitTime}ms before retrying once...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        resp = await fetch(detailsUrl);
+    }
+
+    if (resp.status === 429) {
+        throw new Error('Too Many Requests');
+    }
+    if (!resp.ok) {
+        throw new Error(`Failed to fetch details from ${detailsUrl}: ${resp.status} ${resp.statusText}`);
+    }
+    const scrapedHTML = await resp.text();
     return {
         threads: extractThreadsFromHtml(scrapedHTML),
         boostFrequency: extractBoostFrequencyFromHtml(scrapedHTML, baseFrequency)
@@ -97,14 +148,9 @@ function parseFrequencyGHz(description) {
     return unit === 'M' ? value / 1000 : value;
 }
 
-function parseFrequencyValueToGHz(value) {
-    return parseFrequencyGHz(value);
-}
-
 async function exportCpuListToJson(cpuList, filename = 'cpu-list.json') {
     const json = JSON.stringify(cpuList, null, 2);
 
-    // Node.js environment: write file to disk
     try {
         const fs = require('fs').promises;
         await fs.writeFile(filename, json, 'utf8');
@@ -128,7 +174,7 @@ function extractThreadsFromHtml(html) {
 
 function extractBoostFrequencyFromHtml(html, baseFrequency) {
     const rawBoostFrequency = extractSystemValueFromHtml(html, 'Maximum Frequency');
-    return rawBoostFrequency ? parseFrequencyValueToGHz(rawBoostFrequency) : baseFrequency;
+    return rawBoostFrequency ? parseFrequencyGHz(rawBoostFrequency) : baseFrequency;
 }
 
 function extractSystemValueFromHtml(html, label) {
