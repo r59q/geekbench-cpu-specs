@@ -33,7 +33,13 @@ async function main() {
         const processor = benchmarks[i];
         const sanitizedName = getSanitizedName(processor);
 
-        if (enrichedBenchmarks[sanitizedName]) {
+        const existing = enrichedBenchmarks[sanitizedName];
+        const shouldUpdate = !existing ||
+            existing.samples !== processor.samples ||
+            existing.score !== processor.score ||
+            existing.multicore_score !== processor.multicore_score;
+
+        if (!shouldUpdate) {
             logIteration(enrichStart, enrichStart, iterationCount, benchmarks, processor, i);
             iterationCount++;
             continue;
