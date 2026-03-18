@@ -26,7 +26,7 @@ The output and types of the fields are as follows in the table
 
 Using node
 ```shell
-echo 'fetch("https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json")
+echo 'fetch("https://raw.githubusercontent.com/r59q/geekbench-cpu-specs/refs/heads/master/cpu-list.v1.json")
   .then(res => res.json())
   .then(data => {
     console.log(data["Intel Core i7-6700"]);
@@ -34,11 +34,11 @@ echo 'fetch("https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json")
 ```
 Using curl and jq
 ```shell
-curl -fsSL "https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json" | jq -r '.Intel Core i7-6700'
+curl -fsSL "https://raw.githubusercontent.com/r59q/geekbench-cpu-specs/refs/heads/master/cpu-list.v1.json" | jq -r '."Intel Core i7-6700"'
 ```
 Using javascript
 ```javascript
-fetch("https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json")
+fetch("https://raw.githubusercontent.com/r59q/geekbench-cpu-specs/refs/heads/master/cpu-list.v1.json")
   .then(res => res.json())
   .then(data => {
     console.log(data["Intel Core i7-6700"]);
