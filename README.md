@@ -1,13 +1,34 @@
 # Geekbench CPU specs
 
-A simple node script which fetches all CPUs at https://browser.geekbench.com/processor-benchmarks.json
- and refines the results, adding boost frequency and number of threads by webscraping
+A simple node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
+ and refines the results, adding boost frequency, number of threads, gpu and tdp by webscraping their own.
 
+## Output overview
+The output and types of the fields are as follows in the table
+| Field | Type | Description |
+|---|---|---|
+| id | number | Geekbench CPU ID |
+| name | string | CPU name |
+| samples | number | Number of samples submitted to Geekbench |
+| score | number | Single-core score |
+| multicore_score | number | Multi-core score |
+| icon | string | Icon name for the CPU brand (e.g. "amd", "intel") |
+| family | string | CPU family name |
+| frequency | number | Base frequency in GHz |
+| boost_frequency | number | Boost frequency in GHz |
+| cores | number | Number of CPU cores |
+| threads | number | Number of CPU threads |
+| package | string or null | CPU package type (e.g. "Socket FP8") |
+| tdp | number or null | Thermal Design Power in watts |
+| gpu | string or null | Integrated GPU name if present (e.g. "Radeon 740M Graphics") |
+
+
+## Running it locally
 Running it only requires NodeJS
 ```shell
 node create-cpu-list.js
 ```
-This will generate a file cpu-list.v1.json. This process will take a little less than 1 hour, so as to not trigger rate-limit.
+This will generate a file cpu-list.v1.json. This process will take a little less than 1 hour, to not trigger rate-limit.
 
 You can also just download the cpu-list.json file from this repository. It will be the same file you can generate running it yourself.
 
@@ -49,23 +70,3 @@ Example output:
   }
 }
 ```
-
-## Output overview
-The output and types of the fields are as follows in the table
-| Field | Type | Description |
-|---|---|---|
-| id | number | Geekbench CPU ID |
-| name | string | CPU name |
-| samples | number | Number of samples submitted to Geekbench |
-| score | number | Single-core score |
-| multicore_score | number | Multi-core score |
-| icon | string | Icon name for the CPU brand (e.g. "amd", "intel") |
-| family | string | CPU family name |
-| frequency | number | Base frequency in GHz |
-| boost_frequency | number | Boost frequency in GHz |
-| cores | number | Number of CPU cores |
-| threads | number | Number of CPU threads |
-| package | string or null | CPU package type (e.g. "Socket FP8") |
-| tdp | number or null | Thermal Design Power in watts | 
-| gpu | string or null | Integrated GPU name if present (e.g. "Radeon 740M Graphics") |
-
