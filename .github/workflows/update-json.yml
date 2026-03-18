@@ -18,9 +18,6 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies
-        run: npm install
-
       - name: Run script
         run: node projects/geekbench-cpu-specs/create-cpu-list.js
 
