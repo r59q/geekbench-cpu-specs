@@ -1,7 +1,7 @@
 # Geekbench CPU specs
 
 A simple node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
- and refines the results, adding boost frequency, number of threads, gpu and tdp by webscraping their own.
+ and refines the results, adding boost frequency, number of threads, gpu and tdp by webscraping their own cpu index site.
 
 ## Output overview
 The output and types of the fields are as follows in the table
@@ -22,20 +22,42 @@ The output and types of the fields are as follows in the table
 | tdp | number or null | Thermal Design Power in watts |
 | gpu | string or null | Integrated GPU name if present (e.g. "Radeon 740M Graphics") |
 
+## Testing it quickly
 
-## Running it locally
+Using node
+```shell
+echo 'fetch("https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json")
+  .then(res => res.json())
+  .then(data => {
+    console.log(data["Intel Core i7-6700"]);
+  });' | node -
+```
+Using curl and jq
+```shell
+curl -fsSL "https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json" | jq -r '.Intel Core i7-6700'
+```
+Using javascript
+```javascript
+fetch("https://github.com/r59q/geekbench-cpu-specs/cpu-list.v1.json")
+  .then(res => res.json())
+  .then(data => {
+    console.log(data["Intel Core i7-6700"]);
+  });
+```
+
+## Creating the cpu-list file locally
 Running it only requires NodeJS
 ```shell
 node create-cpu-list.js
 ```
-This will generate a file cpu-list.v1.json. This process will take a little less than 1 hour, to not trigger rate-limit.
+This will generate a file cpu-list.v1.json. This process will take around 45 minutes to 1 hour depending on rate limits exponential back-off is implemented to not trigger rate-limit.
 
 You can also specify a filename
 ```shell
 node create-cpu-list.js geekbench-cpu-list.json
 ```
 
-You can also just download the cpu-list.json file from this repository. It will be the same file you can generate running it yourself.
+You can also just download the cpu-list.v1.json file from this repository. It will be the same file you can generate running it yourself.
 
 Example output:
 ```json
