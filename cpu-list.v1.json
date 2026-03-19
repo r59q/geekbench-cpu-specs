@@ -35206,5 +35206,23 @@
     "package": null,
     "tdp": 350,
     "gpu": null
+  },
+  "Intel Core 2 Duo P8600": {
+    "id": 257,
+    "name": "Intel Core 2 Duo P8600",
+    "samples": 111,
+    "score": 285,
+    "multicore_score": 470,
+    "icon": "intel",
+    "family": "Penryn",
+    "frequency": 2.4,
+    "boost_frequency": 2.4,
+    "cores": 2,
+    "performance_cores": null,
+    "efficiency_cores": null,
+    "threads": 2,
+    "package": "BGA479, PGA478",
+    "tdp": 25,
+    "gpu": null
   }
 }
