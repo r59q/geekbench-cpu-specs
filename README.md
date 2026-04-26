@@ -1,4 +1,8 @@
 # Geekbench CPU Specs
+
+> [!WARNING]
+> This project will no longer work as of april 24th 2026, as GeekBench has blocked access. I will keep up the repository for archival purposes but it will not be updated anymore.
+
 List of all CPUs in Geekbench with their specs. See [cpu-list.v1.json](cpu-list.v1.json) for the actual data.
 Updated once per day automatically.
 

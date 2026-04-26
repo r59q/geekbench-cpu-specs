@@ -269,7 +269,10 @@ const log = {
 };
 
 // Entry point
+fetch("https://browser.geekbench.com/processors/amd-ryzen-threadripper-9970x").then(console.log)
+/*
 main().catch(err => {
     console.error("Error fetching CPU data:", err);
     process.exitCode = 1;
 });
+*/
