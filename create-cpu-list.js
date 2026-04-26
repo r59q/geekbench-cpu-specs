@@ -34,10 +34,12 @@ async function main() {
         const sanitizedName = getSanitizedName(processor);
 
         const existing = enrichedBenchmarks[sanitizedName];
-        const shouldUpdate = !existing ||
-            existing.samples !== processor.samples ||
-            existing.score !== processor.score ||
-            existing.multicore_score !== processor.multicore_score;
+        const isScoreTheSame = existing.samples === processor.samples &&
+            existing.score === processor.score &&
+            existing.multicore_score === processor.multicore_score &&
+            Math.random() > 0.1;
+
+        const shouldUpdate = !existing && !isScoreTheSame;
 
         if (!shouldUpdate) {
             logIteration(enrichStart, enrichStart, iterationCount, benchmarks, processor, i);
