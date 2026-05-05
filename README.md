@@ -4,7 +4,7 @@
 > This project will no longer work as of april 24th 2026, as GeekBench has blocked access via webscraping. I will keep up the repository for archival purposes but the CPU list will not be updated anymore.
 
 List of all CPUs in Geekbench with their specs. See [cpu-list.v1.json](cpu-list.v1.json) for the actual data.
-Updated once per day automatically.
+~Updated once per day automatically~.
 
  To generate it, a simple, no-dependency node script which fetches all CPUs at [geekbench](https://browser.geekbench.com/processor-benchmarks.json)
  and refines the results, adding boost frequency, number of threads, performance/efficiency cores, gpu and tdp by regex webscraping their own cpu index site.
@@ -67,7 +67,7 @@ node create-cpu-list.js geekbench-cpu-list.json
 
 If you already have a cpu-list.v1.json file, it will be used as a cache to avoid re-fetching data for CPUs that haven't changed. The script will only fetch data for new CPUs or those that have updated scores.
 
-You can also just download the cpu-list.v1.json file from this repository. It will be the same file you can generate running it yourself. It is updated once per day automatically.
+You can also just download the cpu-list.v1.json file from this repository. It will be the same file you can generate running it yourself. ~It is updated once per day automatically~.
 
 Example output:
 ```json
